@@ -154,6 +154,7 @@ def main(data, epochs, lr, accumulation_steps, output, batch_size):
 
     # find the available device
     device = get_device()
+    print(f"Found device: {device}")
 
     tokenizer, model = load_BERT()
 
@@ -169,6 +170,9 @@ def main(data, epochs, lr, accumulation_steps, output, batch_size):
     # main training loop
     model.train()
     epoch_pbar = tqdm(range(epochs), desc="Finetuning BERT...", dynamic_ncols=True)
+    print(f"Beginning model training over {epochs} epochs")
+    print(f"Training over {len(data_lst)} samples combined into {len(data_lst) / batch_size} batches")
+    print("")
     for epoch in epoch_pbar:
         total_loss = 0.0
         accumulated_loss = 0.0
