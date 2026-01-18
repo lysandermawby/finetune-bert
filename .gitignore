@@ -11,3 +11,8 @@ wheels/
 
 # Data file
 data.txt
+full_data.txt
+
+# Outputs
+finetuned-bert/
+short_test/
