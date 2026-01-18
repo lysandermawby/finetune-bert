@@ -61,6 +61,11 @@ def forward_pass(text: str, tokenizer, model, device: str) -> torch.Tensor:
     # apply masking
     masked_input_ids, labels = mask_tokens(input_ids, tokenizer)
 
+    # check if there aren't any tokens to predict
+    if (labels != -100).sum() == 0:
+        return None
+
+
     # move to device
     masked_input_ids = masked_input_ids.to(device)
     attention_mask = attention_mask.to(device)
@@ -117,11 +122,16 @@ def main(data, epochs, lr, accumulation_steps, output):
     for epoch in epoch_pbar:
         total_loss = 0.0
         accumulated_loss = 0.0
+        samples_in_batch = 0
 
         text_pbar = tqdm(enumerate(data_lst), total=len(data_lst), desc=f"Epoch: {epoch+1}", leave=False, unit="text", dynamic_ncols=True)
         for i, text in text_pbar:
             # performing forward pass and calculating loss
             loss = forward_pass(text, tokenizer, model, device) 
+
+            # skip if no valid masked tokens
+            if loss is None or torch.isnan(loss):
+                continue
 
             # scale loss by the number of accumulation steps to stabilise learning rate
             scaled_loss = loss / accumulation_steps
@@ -131,19 +141,22 @@ def main(data, epochs, lr, accumulation_steps, output):
 
             accumulated_loss += loss.item()
             total_loss += loss.item()
+            samples_in_batch += 1
 
             # update steps after accumulating enough gradients
-            if (i + 1) % accumulation_steps == 0:
+            if samples_in_batch == accumulation_steps:
                 optimizer.step()
                 optimizer.zero_grad()
 
                 text_pbar.set_postfix({"batch_loss": f"{accumulated_loss / accumulation_steps:.4f}"})
                 accumulated_loss = 0.0
+                samples_in_batch = 0
 
-        # handle remaining samples at end of epoch
-        if len(data_lst) % accumulation_steps != 0:
+        # handling the remaining samples
+        if samples_in_batch > 0:
             optimizer.step()
             optimizer.zero_grad()
+
 
         avg_loss = total_loss / len(data_lst)
         epoch_pbar.set_postfix({"avg_loss": f"{avg_loss:.4f}"})
